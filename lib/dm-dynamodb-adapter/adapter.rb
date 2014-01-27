@@ -1,52 +1,145 @@
 require "dm-dynamodb-adapter/version"
 require 'dm-core'
+require 'aws-sdk'
 
 module DataMapper
   module Adapters
     class DynamodbAdapter < AbstractAdapter
+      # Documentation
+      # http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/V20120810.html
+
+      ##
       # name: symbol
       # options: hash
       def initialize(name, options)
         super
         check_presence_of_aws_credentials
 
-        Aws.config = { access_key_id: Config.aws_access_key,
-                       secret_access_key: Config.aws_secret_key,
-                       region: Config.aws_region }
+        AWS.config(access_key_id: Config.aws_access_key,
+                   secret_access_key: Config.aws_secret_key,
+                   region: Config.aws_region)
 
-        @connection = Aws::DynamoDB.new(Config.other_option_to_hash)
+        @connection = AWS::DynamoDB.new(dynamo_db: Config.other_option_to_hash)
 
-        @adapter = # baza danyh z conneciton
+        @adapter = @connection.client
 
-        @field_naming_convention = Proc.new {}
-        @resource_naming_convention = Proc.new {}
+        # @field_naming_convention = Proc.new {}
+        # @resource_naming_convention = Proc.new {}
       end
 
+      ##
       # resources: array
       # return: number of resources created
       def create(resources)
+        resources.each do |resource|
+          table_name = resource.model.storage_name
+          item       = Hash.new
+
+          resource.attributes.each_pair do |key, value|
+            item[key.to_s] = value_to_dynamodb(value)
+          end
+
+          @adapter.put_item(table_name: table_name,
+                            item: item,
+                            return_values: 'ALL_OLD',
+                            return_consumed_capacity: 'TOTAL',
+                            return_item_collection_metrics: 'NONE')
+        end
       end
 
+      ##
       # query: DataMapper::Query
       # return: array of hashes
       def read(query)
+        # query/scan
+        # Query operates only on primary keys (like in SQL)
+        # Scan reads entire table but it is more consuming
+        raise 'a'
       end
 
+      ##
       # changes: Hash of changes
       # resources: DataMapper::Collection
       # return: number of resources updated
       def update(changes, resources)
+        resources.each do |resource|
+          table_name = resource.model.storage_name
+          item       = Hash.new
+          key        = Hash.new
+
+          changes.each_pair do |key, value|
+            next if resource.model.primary_keys.include?(key)
+            item[key.name.to_s] = {}
+            item[key.name.to_s][:value]   = value_to_dynamodb(value)
+            item[key.name.to_s][:action]  = 'PUT'
+          end
+
+          resource.model.primary_keys.each do |primary_key|
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
+          end
+
+          @adapter.update_item(table_name: table_name,
+                               # Primary Key
+                               key: key,
+                               # For non-key attributes
+                               attribute_updates: item,
+                               return_values: 'UPDATED_NEW',
+                               return_consumed_capacity: 'TOTAL',
+                               return_item_collection_metrics: 'NONE')
+        end
       end
 
+      ##
       # resources: DataMapper::Collection
       # return: number of resources deleteed
       def delete(resources)
+        resources.each do |resource|
+          table_name = resource.model.storage_name
+          key        = Hash.new
+
+          resource.model.primary_keys.each do |primary_key|
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
+          end
+
+          @adapter.delete_item(table_name: table_name,
+                               key: key,
+                               return_values: 'NONE',
+                               return_consumed_capacity: 'TOTAL',
+                               return_item_collection_metrics: 'NONE')
+        end
       end
 
       private
+      def tables
+        @adapter.list_tables
+      end
+
+      def describe_table(resource)
+        @adapter.describe_table(table_name: resource.model.storage_name)
+      end
+
       def check_presence_of_aws_credentials
         Config::REQUIRED_OPTIONS.each do |option|
           raise MissingOption, "Can't find #{option}" unless Config.send(option)
+        end
+      end
+
+      def value_to_dynamodb(value)
+        case value.class.name
+        when 'Numeric', 'Fixnum', 'Float', 'Bignum'
+          { 'n' => value.to_s }
+        when 'IO'
+          { 'b' => value }
+        when 'Array'
+          if value.all? { |v| v.is_a?(::Numeric) }
+            { 'ns' => value }
+          elsif value.all? { |v| v.is_a?(::IO) }
+            { 'bs' => value }
+          else
+            { 'ss' => value }
+          end
+        else
+          { 's' => value }
         end
       end
 
@@ -136,11 +229,19 @@ module DataMapper
         def self.setup
           yield self
         end
+      end # Config
+
+      module PropertyExt
+        def primary_keys
+          properties.select(&:key?)
+        end
       end
-    end
+
+      ::DataMapper::Model.append_extensions(PropertyExt)
+    end # DynamodbAdapter
 
     const_added(:DynamodbAdapter)
-  end
-end
+  end # Adapter
+end # DataMapper
 
 class MissingOption < StandardError; end
