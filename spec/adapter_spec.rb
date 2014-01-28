@@ -28,7 +28,9 @@ describe DataMapper::Adapters::DynamodbAdapter do
 
   it 'read item' do
     expect { @item = Dummy.create(id: 1, first_name: 'a', last_name: 'b', email: 'c') }.not_to raise_error
-    Dummy.get(id: 1, first_name: 'a')
+    record = Dummy.get(1, 'a')
+    record.id.should eq 1
+    record.first_name.should eq 'a'
   end
 
   it 'delete item' do

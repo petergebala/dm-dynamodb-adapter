@@ -54,7 +54,42 @@ module DataMapper
         # query/scan
         # Query operates only on primary keys (like in SQL)
         # Scan reads entire table but it is more consuming
-        raise 'a'
+        condition_properties = query.condition_properties.clone
+        table_name = query.model.storage_name
+        attributes = query.model.properties.map(&:name).map(&:to_s)
+        item       = Hash.new
+
+        query.conditions.each do |condition|
+          item[condition.subject.name.to_s] = {
+                                                attribute_value_list: [value_to_dynamodb(condition.value)],
+                                                comparison_operator: 'EQ'
+                                              }
+        end
+
+
+        records = if condition_properties.select!(&:key?)
+          @adapter.scan(table_name: table_name,
+                        select: 'SPECIFIC_ATTRIBUTES',
+                        attributes_to_get: attributes,
+                        limit: 1000,
+                        consistent_read: true,
+                        key_conditions: item,
+                        scan_index_forward: true,
+                        return_consumed_capacity: 'TOTAL')
+        else
+          @adapter.query(table_name: table_name,
+                         select: 'SPECIFIC_ATTRIBUTES',
+                         attributes_to_get: attributes,
+                         limit: 1000,
+                         consistent_read: true,
+                         key_conditions: item,
+                         scan_index_forward: true,
+                         return_consumed_capacity: 'TOTAL')
+        end
+
+        valid_records = records[:member].map{ |hash| dynamodb_to_value(hash) }
+
+        query.filter_records(valid_records)
       end
 
       ##
@@ -141,6 +176,33 @@ module DataMapper
         else
           { 's' => value }
         end
+      end
+
+      # GETS: { id: { n: "1" } }
+      # RETURNS: { id: 1 }
+      def dynamodb_to_value(hash)
+        result = {}
+        hash.each_pair do |key, value_hash|
+          attribute_type = value_hash.flatten.first
+          attribute_value = value_hash.flatten.last
+
+          correct_value = case attribute_type.to_sym
+                          when :s
+                            attribute_value.to_s
+                          when :n
+                            attribute_value.to_f
+                          when :b
+                            ::IO.new(attribute_value)
+                          when :ss
+                            attribute_value.map(&:to_s)
+                          when :ns
+                            attribute_value.map(&:to_f)
+                          when :bs
+                            attribute_value.map{ |n| ::IO.new(n) }
+                          end
+          result[key] = correct_value
+        end
+        result
       end
 
       module Config
