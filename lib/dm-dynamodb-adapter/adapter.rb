@@ -5,6 +5,9 @@ require 'aws-sdk'
 module DataMapper
   module Adapters
     class DynamodbAdapter < AbstractAdapter
+      attr_reader :adapter
+      alias :dbadapter :adapter
+
       # Documentation
       # http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/V20120810.html
 
@@ -58,6 +61,7 @@ module DataMapper
         table_name = query.model.storage_name
         attributes = query.model.properties.map(&:name).map(&:to_s)
         item       = Hash.new
+        limit      = query.limit || query.model.count
 
         query.conditions.each do |condition|
           item[condition.subject.name.to_s] = {
@@ -66,26 +70,24 @@ module DataMapper
                                               }
         end
 
-
-        records = if condition_properties.select!(&:key?)
-          @adapter.scan(table_name: table_name,
-                        select: 'SPECIFIC_ATTRIBUTES',
-                        attributes_to_get: attributes,
-                        limit: 1000,
-                        consistent_read: true,
-                        key_conditions: item,
-                        scan_index_forward: true,
-                        return_consumed_capacity: 'TOTAL')
-        else
+        records = if condition_properties.any? && !condition_properties.select!(&:key?)
           @adapter.query(table_name: table_name,
                          select: 'SPECIFIC_ATTRIBUTES',
                          attributes_to_get: attributes,
-                         limit: 1000,
+                         limit: limit,
                          consistent_read: true,
                          key_conditions: item,
                          scan_index_forward: true,
                          return_consumed_capacity: 'TOTAL')
+        else
+          @adapter.scan(table_name: table_name,
+                        select: 'SPECIFIC_ATTRIBUTES',
+                        attributes_to_get: attributes,
+                        limit: limit,
+                        scan_filter: item,
+                        return_consumed_capacity: 'TOTAL')
         end
+        binding.pry
 
         valid_records = records[:member].map{ |hash| dynamodb_to_value(hash) }
 
@@ -163,6 +165,8 @@ module DataMapper
         case value.class.name
         when 'Numeric', 'Fixnum', 'Float', 'Bignum'
           { 'n' => value.to_s }
+        when 'DateTime', 'Time'
+          { 'n' => value.to_time.to_f.to_s }
         when 'IO'
           { 'b' => value }
         when 'Array'
@@ -296,6 +300,14 @@ module DataMapper
       module PropertyExt
         def primary_keys
           properties.select(&:key?)
+        end
+
+        def count
+          table_name = storage_name
+          self.repository.adapter.dbadapter.scan(table_name: table_name,
+                                                 select: 'COUNT',
+                                                 scan_filter: {},
+                                                 return_consumed_capacity: 'TOTAL')[:count]
         end
       end
 
