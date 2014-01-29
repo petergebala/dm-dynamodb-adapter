@@ -1,6 +1,6 @@
 # Dm::Dynamodb::Adapter
 
-TODO: Write a gem description
+DynamodDb adapter for DataMapper
 
 ## Installation
 
@@ -18,7 +18,29 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### Configuration
+
+In initializer or configuration file please fill crendetials:
+
+```ruby
+  DataMapper::Adapters::DynamodbAdapter::Config.setup do |config|
+    config.aws_access_key = ENV['AWS_ACCESS_KEY_ID']
+    config.aws_secret_key = ENV['AWS_SECRET_ACCESS_KEY']
+    config.aws_region     = ENV['AWS_REGION']
+  end
+```
+
+### Tests:
+
+Export your test db credentials:
+
+```bash
+  export AWS_ACCESS_KEY_ID='...'
+  export AWS_SECRET_ACCESS_KEY='...'
+  export AWS_REGION='...'
+```
+
+Run: `rspec spec` to check if tests are passing.
 
 ## Contributing
 
