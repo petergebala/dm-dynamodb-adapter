@@ -1,6 +1,6 @@
 # Dm::Dynamodb::Adapter
 
-DynamodDb adapter for DataMapper
+DynamodDB adapter for DataMapper. Support only API verions: `2012-08-10`
 
 ## Installation
 
@@ -23,21 +23,23 @@ Or install it yourself as:
 In initializer or configuration file please fill crendetials:
 
 ```ruby
-  DataMapper::Adapters::DynamodbAdapter::Config.setup do |config|
+  DataMapper::Dynamodb::Config.setup do |config|
     config.aws_access_key = ENV['AWS_ACCESS_KEY_ID']
     config.aws_secret_key = ENV['AWS_SECRET_ACCESS_KEY']
     config.aws_region     = ENV['AWS_REGION']
+    config.api_version    = ENV['API_VERSION']
   end
 ```
 
 ### Tests:
 
-Export your test db credentials:
+Export your test db credentials or use dotenv:
 
 ```bash
   export AWS_ACCESS_KEY_ID='...'
   export AWS_SECRET_ACCESS_KEY='...'
   export AWS_REGION='...'
+  export API_VERSION='...'
 ```
 
 Run: `rspec spec` to check if tests are passing.
