@@ -158,6 +158,10 @@ module DataMapper
           { 'n' => value.to_time.to_f.to_s }
         when 'IO'
           { 'b' => value }
+        when 'NilClass'
+          { 's' => ' ' } # TODO: This is ugly but Dynamodb do not allow empty string
+        when 'String'
+          { 's' => value }
         when 'Array'
           if value.all? { |v| v.is_a?(::Numeric) }
             { 'ns' => value }
@@ -167,7 +171,7 @@ module DataMapper
             { 'ss' => value }
           end
         else
-          { 's' => value }
+          { 's' => value.to_dynamodb_value }
         end
       end
 
