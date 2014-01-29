@@ -1,6 +1,8 @@
 module DataMapper
   module Dynamodb
     class Adapter < DataMapper::Adapters::AbstractAdapter
+      include Aggregates
+
       attr_reader :adapter
       alias :dbadapter :adapter
 

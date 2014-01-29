@@ -13,13 +13,13 @@ module DataMapper
         properties.select(&:key?)
       end
 
-      def count
-        table_name = storage_name
-        self.repository.adapter.dbadapter.scan(table_name: table_name,
-                                                select: 'COUNT',
-                                                scan_filter: {},
-                                                return_consumed_capacity: 'TOTAL')[:count]
-      end
+      # def count
+      #   table_name = storage_name
+      #   repository.adapter.dbadapter.scan(table_name: table_name,
+      #                                     select: 'COUNT',
+      #                                     scan_filter: {},
+      #                                     return_consumed_capacity: 'TOTAL')[:count]
+      # end
     end
   end
 end
