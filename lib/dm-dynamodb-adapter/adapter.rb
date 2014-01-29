@@ -83,7 +83,6 @@ module DataMapper
                         scan_filter: item,
                         return_consumed_capacity: 'TOTAL')
         end
-        binding.pry
 
         valid_records = records[:member].map{ |hash| dynamodb_to_value(hash) }
 
@@ -143,14 +142,6 @@ module DataMapper
       end
 
       private
-      def tables
-        @adapter.list_tables
-      end
-
-      def describe_table(resource)
-        @adapter.describe_table(table_name: resource.model.storage_name)
-      end
-
       def check_presence_of_aws_credentials
         Config::REQUIRED_OPTIONS.each do |option|
           raise MissingOption, "Can't find #{option}" unless Config.send(option)
@@ -204,23 +195,6 @@ module DataMapper
         end
         result
       end
-
-
-      module PropertyExt
-        def primary_keys
-          properties.select(&:key?)
-        end
-
-        def count
-          table_name = storage_name
-          self.repository.adapter.dbadapter.scan(table_name: table_name,
-                                                 select: 'COUNT',
-                                                 scan_filter: {},
-                                                 return_consumed_capacity: 'TOTAL')[:count]
-        end
-      end
-
-      ::DataMapper::Model.append_extensions(PropertyExt)
     end # Adapter
   end # Dynamodb
 
