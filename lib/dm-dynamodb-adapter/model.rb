@@ -5,8 +5,8 @@ module DataMapper
         repository.adapter.dbadapter.list_tables
       end
 
-      def describe_table(resource)
-        repository.adapter.dbadapter.describe_table(table_name: resource.model.storage_name)
+      def describe_table
+        repository.adapter.dbadapter.describe_table(table_name: storage_name)
       end
 
       def primary_keys
