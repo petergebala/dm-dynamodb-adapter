@@ -11,7 +11,7 @@ class Dummy
   property :email, String
 end
 
-describe DataMapper::Adapters::DynamodbAdapter do
+describe DataMapper::Dynamodb::Adapter do
   before(:all) do
     DataMapper.finalize
   end
