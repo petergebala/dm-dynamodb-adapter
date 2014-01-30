@@ -37,7 +37,7 @@ module DataMapper
           item       = Hash.new
 
           resource.attributes.each_pair do |key, value|
-            item[key.to_s] = value_to_dynamodb(value)
+            item[key.to_s] = value_to_dynamodb(value) if value.present?
           end
 
           @adapter.put_item(table_name: table_name,
