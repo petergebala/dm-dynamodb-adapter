@@ -24,5 +24,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'dotenv'
   spec.add_development_dependency 'pry'
   spec.add_runtime_dependency 'dm-core', '~> 1.2.1'
+  spec.add_runtime_dependency 'dm-aggregates'
   spec.add_runtime_dependency 'aws-sdk'
 end

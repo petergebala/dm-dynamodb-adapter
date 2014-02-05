@@ -37,7 +37,7 @@ module DataMapper
           item       = Hash.new
 
           resource.attributes.each_pair do |key, value|
-            item[key.to_s] = value_to_dynamodb(value) if value.present?
+            item[key.to_s] = value_to_dynamodb(resource.model, key, value) if value.present?
           end
 
           @adapter.put_item(table_name: table_name,
@@ -63,7 +63,7 @@ module DataMapper
 
         query.conditions.each do |condition|
           item[condition.subject.name.to_s] = {
-                                                attribute_value_list: [value_to_dynamodb(condition.value)],
+                                                attribute_value_list: [value_to_dynamodb(query.model, condition.subject.name, condition.value)],
                                                 comparison_operator: 'EQ'
                                               }
         end
@@ -86,7 +86,7 @@ module DataMapper
                         return_consumed_capacity: 'TOTAL')
         end
 
-        valid_records = records[:member].map{ |hash| dynamodb_to_value(hash) }
+        valid_records = records[:member].map{ |hash| dynamodb_to_value(query.model, hash) }
 
         query.filter_records(valid_records)
       end
@@ -104,12 +104,12 @@ module DataMapper
           changes.each_pair do |key, value|
             next if resource.model.primary_keys.include?(key)
             item[key.name.to_s] = {}
-            item[key.name.to_s][:value]   = value_to_dynamodb(value)
+            item[key.name.to_s][:value]   = value_to_dynamodb(resource.model, key, value)
             item[key.name.to_s][:action]  = 'PUT'
           end
 
           resource.model.primary_keys.each do |primary_key|
-            key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, key, resource.attributes[primary_key.name])
           end
 
           @adapter.update_item(table_name: table_name,
@@ -132,7 +132,8 @@ module DataMapper
           key        = Hash.new
 
           resource.model.primary_keys.each do |primary_key|
-            key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
+            # key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, key, resource.attributes[primary_key.name])
           end
 
           @adapter.delete_item(table_name: table_name,
@@ -150,54 +151,22 @@ module DataMapper
         end
       end
 
-      def value_to_dynamodb(value)
-        case value.class.name
-        when 'Numeric', 'Fixnum', 'Float', 'Bignum'
-          { 'n' => value.to_s }
-        when 'DateTime', 'Time'
-          { 'n' => value.to_time.to_f.to_s }
-        when 'IO'
-          { 'b' => value }
-        when 'NilClass'
-          { 's' => ' ' } # TODO: This is ugly but Dynamodb do not allow empty string
-        when 'String'
-          { 's' => value }
-        when 'Array'
-          if value.all? { |v| v.is_a?(::Numeric) }
-            { 'ns' => value }
-          elsif value.all? { |v| v.is_a?(::IO) }
-            { 'bs' => value }
-          else
-            { 'ss' => value }
-          end
-        else
-          { 's' => value.to_dynamodb_value }
-        end
+      def value_to_dynamodb(model, key, value)
+        model_property = model.properties[key]
+        dynamodb_value_wrapper = Primitive.new(value, model_property.primitive)
+        { dynamodb_value_wrapper.type_in_dynamodb => dynamodb_value_wrapper.to_dynamodb }
       end
 
       # GETS: { id: { n: "1" } }
       # RETURNS: { id: 1 }
-      def dynamodb_to_value(hash)
+      def dynamodb_to_value(model, hash)
         result = {}
-        hash.each_pair do |key, value_hash|
-          attribute_type = value_hash.flatten.first
-          attribute_value = value_hash.flatten.last
-
-          correct_value = case attribute_type.to_sym
-                          when :s
-                            attribute_value.to_s
-                          when :n
-                            attribute_value.to_f
-                          when :b
-                            ::IO.new(attribute_value)
-                          when :ss
-                            attribute_value.map(&:to_s)
-                          when :ns
-                            attribute_value.map(&:to_f)
-                          when :bs
-                            attribute_value.map{ |n| ::IO.new(n) }
-                          end
-          result[key] = correct_value
+        hash.each_pair do |name, value_hash|
+          value_hash.each_pair do |key, value|
+            model_property          = model.properties[name]
+            dynamodb_value_wrapper  = Primitive.new(value, model_property.primitive)
+            result[name]            = dynamodb_value_wrapper.from_dynamodb
+          end
         end
         result
       end
@@ -207,5 +176,3 @@ module DataMapper
   Adapters::DynamodbAdapter = DataMapper::Dynamodb::Adapter
   Adapters.const_added(:DynamodbAdapter)
 end # DataMapper
-
-class MissingOption < StandardError; end
