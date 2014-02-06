@@ -33,7 +33,7 @@ module DataMapper
         :ssl_verify_peer,
         :validate_params ]
 
-      @@api_version           = nil # Default: '2012-08-10'
+      @@api_version           = '2012-08-10'
       @@convert_params        = nil # Default: true
       @@credentials           = nil
       @@endpoint              = nil
