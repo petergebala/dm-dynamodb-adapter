@@ -1,7 +1,8 @@
 module DataMapper
   module Dynamodb
     class Primitive
-      attr_reader :value, :primitive
+      attr_accessor :value
+      attr_reader :primitive
 
       def initialize(value, primitive)
         @value, @primitive = value, primitive
@@ -21,7 +22,7 @@ module DataMapper
 
       private
       def dynamodb_primitive
-        Object.module_eval("DataMapper::Dynamodb::Primitive::#{primitive}").new(value, primitive)
+        Object.module_eval("DataMapper::Dynamodb::Primitive::#{primitive}").new(@value, @primitive)
       end
     end
   end

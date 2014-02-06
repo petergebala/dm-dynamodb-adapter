@@ -3,11 +3,11 @@ module DataMapper
     class Primitive
       class Object < Base
         def to_dynamodb
-          marshal(value)
+          [ Marshal.dump(value) ].pack('m')
         end
 
         def from_dynamodb
-          unmarshal(value)
+          Marshal.load(value.unpack('m').first)
         end
 
         def type_in_dynamodb

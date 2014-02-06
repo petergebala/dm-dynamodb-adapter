@@ -3,7 +3,7 @@ module DataMapper
     class Primitive
       class Serial < Base
         def to_dynamodb
-          value.to_i
+          value.to_s
         end
 
         def from_dynamodb

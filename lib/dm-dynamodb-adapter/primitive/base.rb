@@ -2,6 +2,10 @@ module DataMapper
   module Dynamodb
     class Primitive
       class Base < Primitive
+        def initialize(value, primitive)
+          super
+        end
+
         def to_dynamodb
           raise PrimitiveNotImplemented, "Need to be implemented #{self.class.name}#to_dynamodb"
         end

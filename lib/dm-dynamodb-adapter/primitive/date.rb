@@ -3,15 +3,15 @@ module DataMapper
     class Primitive
       class Date < Base
         def to_dynamodb
-          value.to_datetime.to_f.to_s
+          value.to_time.to_i
         end
 
         def from_dynamodb
-          ::Time.at(value.to_f).to_date
+          ::Time.at(value.to_i).to_date
         end
 
         def type_in_dynamodb
-          's'
+          'n'
         end
       end
     end
