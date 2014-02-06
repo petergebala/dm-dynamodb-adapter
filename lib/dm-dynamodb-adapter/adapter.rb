@@ -59,7 +59,7 @@ module DataMapper
         table_name = query.model.storage_name
         attributes = query.model.properties.map(&:name).map(&:to_s)
         item       = Hash.new
-        limit      = query.limit || query.model.count
+        limit      = query.limit || (query.model.count + 1)
 
         query.conditions.each do |condition|
           item[condition.subject.name.to_s] = {
@@ -103,13 +103,18 @@ module DataMapper
 
           changes.each_pair do |key, value|
             next if resource.model.primary_keys.include?(key)
+            correct_value = value_to_dynamodb(resource.model, key.name, value)
             item[key.name.to_s] = {}
-            item[key.name.to_s][:value]   = value_to_dynamodb(resource.model, key, value)
-            item[key.name.to_s][:action]  = 'PUT'
+            if value.present?
+              item[key.name.to_s][:value]   = correct_value
+              item[key.name.to_s][:action]  = 'PUT'
+            else
+              item[key.name.to_s][:action]  = 'DELETE'
+            end
           end
 
           resource.model.primary_keys.each do |primary_key|
-            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, key, resource.attributes[primary_key.name])
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
           @adapter.update_item(table_name: table_name,
@@ -132,8 +137,7 @@ module DataMapper
           key        = Hash.new
 
           resource.model.primary_keys.each do |primary_key|
-            # key[primary_key.name.to_s] = value_to_dynamodb(resource.attributes[primary_key.name])
-            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, key, resource.attributes[primary_key.name])
+            key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
           @adapter.delete_item(table_name: table_name,
