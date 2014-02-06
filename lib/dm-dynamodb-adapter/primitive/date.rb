@@ -3,7 +3,7 @@ module DataMapper
     class Primitive
       class Date < Base
         def to_dynamodb
-          value.to_time.to_i
+          value.to_time.to_i.to_s
         end
 
         def from_dynamodb

@@ -13,7 +13,7 @@ describe DataMapper::Dynamodb::Primitive::Time do
 
   context '#to_dynamodb' do
     it 'should save value as string' do
-      primitive.to_dynamodb.should eq date_integer
+      primitive.to_dynamodb.should eq date_integer.to_s
     end
   end
 
