@@ -22,5 +22,6 @@ require 'dm-dynamodb-adapter/aggregates'
 require 'dm-dynamodb-adapter/adapter'
 
 class MissingOption < StandardError; end
-class PrimitiveNotImplemented < StandardError; end
-class OperationNotImplemented < StandardError; end
+class PrimitiveNotImplemented < NotImplementedError; end
+class OperationNotImplemented < NotImplementedError; end
+class ConditionNotImplemented < NotImplementedError; end
