@@ -1,3 +1,5 @@
+require 'logger'
+
 module DataMapper
   module Dynamodb
     class Adapter < DataMapper::Adapters::AbstractAdapter
@@ -6,6 +8,10 @@ module DataMapper
 
       attr_reader :adapter
       alias :dbadapter :adapter
+
+      def logger
+        @logger ||= Logger.new(STDOUT)
+      end
 
       # Documentation
       # http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/V20120810.html
@@ -41,6 +47,7 @@ module DataMapper
             item[key.to_s] = value_to_dynamodb(resource.model, key, value) if value.present?
           end
 
+          logger.info("AWS put_item:\n\ttable_name: #{table_name.inspect}\n\titem: #{item.inspect}\n\n")
           @adapter.put_item(table_name: table_name,
                             item: item,
                             return_values: 'ALL_OLD',
@@ -60,7 +67,7 @@ module DataMapper
         table_name = query.model.storage_name
         attributes = query.model.properties.map(&:name).map(&:to_s)
         item       = Hash.new
-        limit      = query.limit || (query.model.count + 1)
+        limit      = query.model.count + 1
         conditions = query.conditions
 
         case conditions.class.name.demodulize
@@ -76,6 +83,7 @@ module DataMapper
         end
 
         records = if condition_properties.any? && !condition_properties.select!(&:key?)
+          logger.info("AWS query:\n\ttable_name: #{table_name.inspect}\n\tattributes_to_get: #{attributes.inspect}\n\tlimit: #{limit}\n\tkey_conditions: #{item.inspect}\n\n")
           @adapter.query(table_name: table_name,
                          select: 'SPECIFIC_ATTRIBUTES',
                          attributes_to_get: attributes,
@@ -85,6 +93,7 @@ module DataMapper
                          scan_index_forward: true,
                          return_consumed_capacity: 'TOTAL')
         else
+          logger.info("AWS scan:\n\ttable_name: #{table_name.inspect}\n\tattributes_to_get: #{attributes.inspect}\n\tlimit: #{limit}\n\tscan_filter: #{item.inspect}\n\n")
           @adapter.scan(table_name: table_name,
                         select: 'SPECIFIC_ATTRIBUTES',
                         attributes_to_get: attributes,
@@ -138,6 +147,7 @@ module DataMapper
             key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
+          logger.info("AWS update_item:\n\ttable_name: #{table_name.inspect}\n\tkey: #{key.inspect}\n\tattribute_updates: #{item.inspect}\n\n")
           @adapter.update_item(table_name: table_name,
                                # Primary Key
                                key: key,
@@ -161,6 +171,7 @@ module DataMapper
             key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
+          logger.info("AWS delete_item:\n\ttable_name: #{table_name.inspect}\n\tkey: #{key.inspect}\n\n")
           @adapter.delete_item(table_name: table_name,
                                key: key,
                                return_values: 'NONE',
