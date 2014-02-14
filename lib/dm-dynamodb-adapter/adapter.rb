@@ -9,10 +9,6 @@ module DataMapper
       attr_reader :adapter
       alias :dbadapter :adapter
 
-      def logger
-        @logger ||= Logger.new(STDOUT)
-      end
-
       # Documentation
       # http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/V20120810.html
 
@@ -107,20 +103,6 @@ module DataMapper
         query.filter_records(valid_records)
       end
 
-      def dynamodb_statement(condition)
-        case condition
-          when EqualToComparison              then 'EQ'
-          when GreaterThanComparison          then 'GT'
-          when LessThanComparison             then 'LT'
-          when GreaterThanOrEqualToComparison then 'GE'
-          when LessThanOrEqualToComparison    then 'LE'
-          when InclusionComparison            then 'IN'
-          when LikeComparison                 then 'CONTAINS'
-          else
-            raise NotImplementedError, "#{condition} is not implemented."
-        end
-      end
-
       ##
       # changes: Hash of changes
       # resources: DataMapper::Collection
@@ -181,9 +163,27 @@ module DataMapper
       end
 
       private
+      def logger
+        @logger ||= Logger.new(STDOUT)
+      end
+
       def check_presence_of_aws_credentials
         Config::REQUIRED_OPTIONS.each do |option|
           raise MissingOption, "Can't find #{option}" unless Config.send(option)
+        end
+      end
+
+      def dynamodb_statement(condition)
+        case condition
+          when EqualToComparison              then 'EQ'
+          when GreaterThanComparison          then 'GT'
+          when LessThanComparison             then 'LT'
+          when GreaterThanOrEqualToComparison then 'GE'
+          when LessThanOrEqualToComparison    then 'LE'
+          when InclusionComparison            then 'IN'
+          when LikeComparison                 then 'CONTAINS'
+          else
+            raise NotImplementedError, "#{condition} is not implemented."
         end
       end
 

@@ -31,7 +31,8 @@ module DataMapper
         :ssl_ca_bundle,
         :ssl_ca_directory,
         :ssl_verify_peer,
-        :validate_params ]
+        :validate_params,
+        :logger ]
 
       @@api_version           = '2012-08-10'
       @@convert_params        = nil # Default: true
@@ -58,6 +59,7 @@ module DataMapper
       @@ssl_ca_directory      = nil
       @@ssl_verify_peer       = nil # Default: true
       @@validate_params       = nil # Default: true
+      @@logger                = true
 
       (REQUIRED_OPTIONS + OPTIONAL_OPTIONS).each do |mth|
         definition = %Q{ unless defined? @@#{mth}
