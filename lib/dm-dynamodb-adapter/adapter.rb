@@ -1,3 +1,5 @@
+require 'logger'
+
 module DataMapper
   module Dynamodb
     class Adapter < DataMapper::Adapters::AbstractAdapter
@@ -41,6 +43,7 @@ module DataMapper
             item[key.to_s] = value_to_dynamodb(resource.model, key, value) if value.present?
           end
 
+          logger.info("AWS put_item:\n\ttable_name: #{table_name.inspect}\n\titem: #{item.inspect}\n\n")
           @adapter.put_item(table_name: table_name,
                             item: item,
                             return_values: 'ALL_OLD',
@@ -60,7 +63,7 @@ module DataMapper
         table_name = query.model.storage_name
         attributes = query.model.properties.map(&:name).map(&:to_s)
         item       = Hash.new
-        limit      = query.limit || (query.model.count + 1)
+        limit      = query.model.count + 1
         conditions = query.conditions
 
         case conditions.class.name.demodulize
@@ -76,6 +79,7 @@ module DataMapper
         end
 
         records = if condition_properties.any? && !condition_properties.select!(&:key?)
+          logger.info("AWS query:\n\ttable_name: #{table_name.inspect}\n\tattributes_to_get: #{attributes.inspect}\n\tlimit: #{limit}\n\tkey_conditions: #{item.inspect}\n\n")
           @adapter.query(table_name: table_name,
                          select: 'SPECIFIC_ATTRIBUTES',
                          attributes_to_get: attributes,
@@ -85,6 +89,7 @@ module DataMapper
                          scan_index_forward: true,
                          return_consumed_capacity: 'TOTAL')
         else
+          logger.info("AWS scan:\n\ttable_name: #{table_name.inspect}\n\tattributes_to_get: #{attributes.inspect}\n\tlimit: #{limit}\n\tscan_filter: #{item.inspect}\n\n")
           @adapter.scan(table_name: table_name,
                         select: 'SPECIFIC_ATTRIBUTES',
                         attributes_to_get: attributes,
@@ -96,20 +101,6 @@ module DataMapper
         valid_records = records[:member].map{ |hash| dynamodb_to_value(query.model, hash) }
 
         query.filter_records(valid_records)
-      end
-
-      def dynamodb_statement(condition)
-        case condition
-          when EqualToComparison              then 'EQ'
-          when GreaterThanComparison          then 'GT'
-          when LessThanComparison             then 'LT'
-          when GreaterThanOrEqualToComparison then 'GE'
-          when LessThanOrEqualToComparison    then 'LE'
-          when InclusionComparison            then 'IN'
-          when LikeComparison                 then 'CONTAINS'
-          else
-            raise NotImplementedError, "#{condition} is not implemented."
-        end
       end
 
       ##
@@ -138,6 +129,7 @@ module DataMapper
             key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
+          logger.info("AWS update_item:\n\ttable_name: #{table_name.inspect}\n\tkey: #{key.inspect}\n\tattribute_updates: #{item.inspect}\n\n")
           @adapter.update_item(table_name: table_name,
                                # Primary Key
                                key: key,
@@ -161,6 +153,7 @@ module DataMapper
             key[primary_key.name.to_s] = value_to_dynamodb(resource.model, primary_key.name, resource.attributes[primary_key.name])
           end
 
+          logger.info("AWS delete_item:\n\ttable_name: #{table_name.inspect}\n\tkey: #{key.inspect}\n\n")
           @adapter.delete_item(table_name: table_name,
                                key: key,
                                return_values: 'NONE',
@@ -170,9 +163,27 @@ module DataMapper
       end
 
       private
+      def logger
+        @logger ||= Logger.new(STDOUT)
+      end
+
       def check_presence_of_aws_credentials
         Config::REQUIRED_OPTIONS.each do |option|
           raise MissingOption, "Can't find #{option}" unless Config.send(option)
+        end
+      end
+
+      def dynamodb_statement(condition)
+        case condition
+          when EqualToComparison              then 'EQ'
+          when GreaterThanComparison          then 'GT'
+          when LessThanComparison             then 'LT'
+          when GreaterThanOrEqualToComparison then 'GE'
+          when LessThanOrEqualToComparison    then 'LE'
+          when InclusionComparison            then 'IN'
+          when LikeComparison                 then 'CONTAINS'
+          else
+            raise NotImplementedError, "#{condition} is not implemented."
         end
       end
 
