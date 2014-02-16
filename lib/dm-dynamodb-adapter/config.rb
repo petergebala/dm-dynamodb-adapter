@@ -59,7 +59,7 @@ module DataMapper
       @@ssl_ca_directory      = nil
       @@ssl_verify_peer       = nil # Default: true
       @@validate_params       = nil # Default: true
-      @@logger                = true
+      @@logger                = nil
 
       (REQUIRED_OPTIONS + OPTIONAL_OPTIONS).each do |mth|
         definition = %Q{ unless defined? @@#{mth}
